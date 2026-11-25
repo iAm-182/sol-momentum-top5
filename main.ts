@@ -18,7 +18,9 @@
 //   - Rotation: on a rebalance bar it sells every held symbol outside the
 //     top five; the buys for the incoming symbols go out on the next
 //     batch, because a sell's proceeds only land at the next open and can
-//     never fund a buy in the same reply.
+//     never fund a buy in the same reply. Before buying, the ranking is
+//     re-checked, so a symbol that dropped out in the one-bar gap is not
+//     bought stale.
 //   - Sizing: the free cash is split evenly over the incoming symbols,
 //     each buy capped at caps.max_weight_bps of equity; below the minimum
 //     notional it buys nothing.
@@ -115,9 +117,12 @@ await runBars({
     // Warm-up batches reject every order: build history, send nothing.
     if (state.warmingUp) return [];
     // Buys for the symbols chosen on the last rebalance bar, whose sells
-    // have now filled and whose proceeds are in cash.
+    // have now filled and whose proceeds are in cash. Re-check the
+    // ranking first: a bar has passed since the choice, and a symbol that
+    // has already dropped out of the top five is not bought stale.
     if (entering !== null) {
-      const orders = buys(state, entering);
+      const fresh = target(state, batch.seq);
+      const orders = buys(state, entering.filter((s) => fresh.includes(s)));
       entering = null;
       return orders;
     }
